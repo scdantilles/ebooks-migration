@@ -44,7 +44,11 @@ while (my $r = $file->next())
 	my $new = {
 		title    => $r->field('245') ? $r->field('245')->subfield("a") : undef,
 		pub_date => $r->field('260') ? $r->field('260')->subfield("c") : undef,
-		isbns    => [ $r->field('020') ? $r->field('020')->subfield("a") : undef ],
+		isbns    => [ {
+			isbn => $r->field('020') ? $r->field('020')->subfield("a") : undef },
+			primary => 1,
+			electronic => 1,
+		],
 		author   => $r->field('100') ? $r->field('100')->subfield("a") : undef,
 		sfxn     => $r->field('090') ? $r->field('090')->subfield("a") : undef,
 		openurl  => $r->field('856') ? "http://" . $r->field('856')->subfield("u") : undef,
