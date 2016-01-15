@@ -16,17 +16,6 @@ my $meta = decode_json($json);
 my $num = @$meta;
 say "Openned existing meta.json, containing $num entries.";
 
-# Checks if an entry already exists in meta.json for this MARC record
-sub already_exists {
-	my $sfxn = shift;
-	for my $e (@$meta) {
-		if ($e->{sfxn} eq $sfxn) {
-			return $e;
-		}
-	}
-	return 0;
-}
-
 my $i = 0; # loop counter
 my $c = 0; # number of created entries
 my $u = 0; # number of updated entries
@@ -45,24 +34,27 @@ while (my $r = $file->next())
 		title    => $r->field('245') ? $r->field('245')->subfield("a") : undef,
 		pub_date => $r->field('260') ? $r->field('260')->subfield("c") : undef,
 		isbns    => [ {
-			isbn => $r->field('020') ? $r->field('020')->subfield("a") : undef },
+			isbn => $r->field('020') ? $r->field('020')->subfield("a") : undef,
 			primary => 1,
 			electronic => 1,
-		],
+		} ],
 		author   => $r->field('100') ? $r->field('100')->subfield("a") : undef,
 		sfxn     => $r->field('090') ? $r->field('090')->subfield("a") : undef,
 		openurl  => $r->field('856') ? "http://" . $r->field('856')->subfield("u") : undef,
 		target   => $r->field('866') ? (split(':', $r->field('866')->subfield("x")))[0] : undef,
 	};
 
-	if (my $e = already_exists($sfxn))
-	{
-		# TODO update the existing entry on a per field basis
-		$e = $new;
-		$u++;
+	my $found = 0;
+	for my $e (@$meta) {
+		if ($e->{sfxn} eq $sfxn) {
+			$e = $new;
+			$u++;
+			$found = 1;
+			last;
+		}
 	}
-	else
-	{
+
+	unless ($found) {
 		push @$meta, $new;
 		$c++;
 	}
