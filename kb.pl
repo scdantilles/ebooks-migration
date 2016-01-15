@@ -20,13 +20,14 @@ my $json;
   $json eq "" and $json = "[]";
   close $fh;
 }
-my $meta = decode_json($json);
+my $meta = JSON->new->utf8->decode($json);
 my $num = @$meta;
 say "Openned existing meta.json, containing $num entries.";
 
 my $i = 0; # loop counter
 my $c = 0; # number of created entries
 my $u = 0; # number of updated entries
+my $d = 0; # number of disabled entries
 
 my $file = MARC::File::XML->in($ARGV[0]);
 
@@ -38,15 +39,15 @@ while (my $r = $file->next())
 
 	continue unless defined $sfxn;
 
-	my $new = {
-		isbns    => [],
-		title    => $r->subfield('245', "a"),
-		pub_date => $r->subfield('260', "c"),
-		author   => $r->subfield('100', "a"),
-		sfxn     => $r->subfield('090', "a"),
-		openurl  => "http://" . $r->subfield('856', "u"),
-		target   => (split(':', $r->subfield('866', "x")))[0],
-	};
+	my $new = {};
+	$$new{isbns}    = [];
+	$$new{active}   = "1";
+	$$new{title}    = $r->subfield('245', "a") if ($r->subfield('245', "a"));
+	$$new{author}   = $r->subfield('100', "a") if ($r->subfield('100', "a"));
+	$$new{pub_date} = $r->subfield('260', "c") if ($r->subfield('260', "c"));
+	$$new{sfxn}     = $r->subfield('090', "a") if ($r->subfield('090', "a"));
+	$$new{openurl}  = "http://" . $r->subfield('856', "u") if ($r->subfield('856', "u"));
+	$$new{target}   = (split(':', $r->subfield('866', "x")))[0] if ($r->subfield('866', "x"));
 
 	for ($r->field('020')) {
 		push $$new{isbns}, {
@@ -73,14 +74,33 @@ while (my $r = $file->next())
 		$c++;
 	}
 }
+$file->close();
 
-# TODO loop over meta.json again to find some entries to disable
+#TODO loop over meta.json again to find some entries to disable
+for my $entry (@$meta) {
+	my $found = 0;
+	my $file = MARC::File::XML->in($ARGV[0]);
+	while (my $r = $file->next())
+	{
+		if ($$entry{sfxn} eq $r->subfield('090', "a"))
+		{
+			$found = 1;
+		}
+	}
+	$file->close();
+
+	unless ($found) {
+		$$entry{active} = 0;
+		$d++;
+	}
+}
 
 open my $fh, ">", "meta.json";
-print $fh to_json($meta, {pretty => 1});
+print $fh JSON->new->utf8->pretty->encode($meta);
 close $fh;
 
 say "----";
 say "Looped over $i records";
 say "Updated $u records";
 say "Created $c records";
+say "Disabled $d records";
