@@ -45,9 +45,10 @@ while (my $r = $file->next())
 	};
 
 	my $found = 0;
-	for my $e (@$meta) {
-		if ($e->{sfxn} eq $sfxn) {
-			$e = $new;
+	for my $entry (@$meta) {
+		if ($$entry{sfxn} eq $sfxn) {
+			$$new{updated} = time();
+			$entry = $new;
 			$u++;
 			$found = 1;
 			last;
@@ -55,6 +56,7 @@ while (my $r = $file->next())
 	}
 
 	unless ($found) {
+		$$new{created} = time();
 		push @$meta, $new;
 		$c++;
 	}
