@@ -2,6 +2,7 @@
 use v5.22;
 use MARC::File::XML(BinaryEncoding => 'utf8', RecordFormat => 'UNIMARC');
 use JSON;
+use Data::Dumper;
 binmode(STDOUT, ":utf8");
 
 # Remove dashes from the ISBNs
@@ -40,16 +41,20 @@ while (my $r = $file->next())
 	my $new = {
 		title    => $r->field('245') ? $r->field('245')->subfield("a") : undef,
 		pub_date => $r->field('260') ? $r->field('260')->subfield("c") : undef,
-		isbns    => [ {
-			isbn => $r->field('020') ? clean_isbn($r->field('020')->subfield("a")) : undef,
-			primary => 1,
-			electronic => 1,
-		} ],
+		isbns    => [],
 		author   => $r->field('100') ? $r->field('100')->subfield("a") : undef,
 		sfxn     => $r->field('090') ? $r->field('090')->subfield("a") : undef,
 		openurl  => $r->field('856') ? "http://" . $r->field('856')->subfield("u") : undef,
 		target   => $r->field('866') ? (split(':', $r->field('866')->subfield("x")))[0] : undef,
 	};
+
+	for ($r->field('020')) {
+		push $$new{isbns}, {
+			isbn       => clean_isbn($_->subfield("a")),
+			primary    => 1,
+			electronic => 1,
+		};
+	}
 
 	my $found = 0;
 	for my $entry (@$meta) {
