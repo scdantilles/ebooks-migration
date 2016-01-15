@@ -48,7 +48,7 @@ while (my $r = $file->next())
 	for my $entry (@$meta) {
 		if ($$entry{sfxn} eq $sfxn) {
 			$$new{updated} = time();
-			$entry = $new;
+			$entry = { %$entry, %$new };
 			$u++;
 			$found = 1;
 			last;
