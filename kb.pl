@@ -9,6 +9,7 @@ my $json;
   local $/;
   open my $fh, "<", "meta.json";
   $json = <$fh>;
+  $json eq "" and $json = "[]";
   close $fh;
 }
 my $meta = decode_json($json);
