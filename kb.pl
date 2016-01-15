@@ -39,13 +39,13 @@ while (my $r = $file->next())
 	continue unless defined $sfxn;
 
 	my $new = {
-		title    => $r->field('245') ? $r->field('245')->subfield("a") : undef,
-		pub_date => $r->field('260') ? $r->field('260')->subfield("c") : undef,
 		isbns    => [],
-		author   => $r->field('100') ? $r->field('100')->subfield("a") : undef,
-		sfxn     => $r->field('090') ? $r->field('090')->subfield("a") : undef,
-		openurl  => $r->field('856') ? "http://" . $r->field('856')->subfield("u") : undef,
-		target   => $r->field('866') ? (split(':', $r->field('866')->subfield("x")))[0] : undef,
+		title    => $r->subfield('245', "a"),
+		pub_date => $r->subfield('260', "c"),
+		author   => $r->subfield('100', "a"),
+		sfxn     => $r->subfield('090', "a"),
+		openurl  => "http://" . $r->subfield('856', "u"),
+		target   => (split(':', $r->subfield('866', "x")))[0],
 	};
 
 	for ($r->field('020')) {
