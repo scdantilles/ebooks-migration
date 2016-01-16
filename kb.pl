@@ -76,7 +76,7 @@ while (my $r = $file->next())
 }
 $file->close();
 
-#TODO loop over meta.json again to find some entries to disable
+# loop over meta.json again to find some entries to disable
 for my $entry (@$meta) {
 	my $found = 0;
 	my $file = MARC::File::XML->in($ARGV[0]);
@@ -101,6 +101,6 @@ close $fh;
 
 say "----";
 say "Looped over $i records";
-say "Updated $u records";
-say "Created $c records";
-say "Disabled $d records";
+say "Updated $u entries";
+say "Created $c entries";
+say "Disabled $d entries";
