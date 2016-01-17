@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 use v5.22;
 use MARC::File::XML(BinaryEncoding => 'utf8', RecordFormat => 'UNIMARC');
-use JSON;
+use MongoDB;
 use Data::Dumper;
 binmode(STDOUT, ":utf8");
 
@@ -12,22 +12,16 @@ sub clean_isbn {
 	$isbn;
 }
 
-my $json;
-{
-  local $/;
-  open my $fh, "<", "meta.json";
-  $json = <$fh>;
-  $json eq "" and $json = "[]";
-  close $fh;
-}
-my $meta = JSON->new->utf8->decode($json);
-my $num = @$meta;
-say "Openned existing meta.json, containing $num entries.";
+my $client     = MongoDB->connect('mongodb://localhost');
+my $collection = $client->ns('ebooks.meta');
+my $num = $collection->count();
+say "Connecting mongodb, containing $num entries.";
 
 my $i = 0; # loop counter
 my $c = 0; # number of created entries
 my $u = 0; # number of updated entries
 my $d = 0; # number of disabled entries
+my $t = ""; # target service
 
 my $file = MARC::File::XML->in($ARGV[0]);
 
@@ -49,6 +43,8 @@ while (my $r = $file->next())
 	$$new{openurl}  = "http://" . $r->subfield('856', "u") if ($r->subfield('856', "u"));
 	$$new{target}   = (split(':', $r->subfield('866', "x")))[0] if ($r->subfield('866', "x"));
 
+	$t = $$new{target};
+
 	for ($r->field('020')) {
 		push $$new{isbns}, {
 			isbn       => clean_isbn($_->subfield("a")),
@@ -57,50 +53,48 @@ while (my $r = $file->next())
 		};
 	}
 
-	my $found = 0;
-	for my $entry (@$meta) {
-		if ($$entry{sfxn} eq $sfxn) {
-			$$new{updated} = time();
-			$entry = { %$entry, %$new };
-			$u++;
-			$found = 1;
-			last;
-		}
+	my $entry = $collection->find_one({ sfxn => "$sfxn" });
+	if ($entry)
+	{
+		$$new{updated} = time();
+		$collection->replace_one({ sfxn => "$sfxn" }, { %$entry, %$new });
+		$u++;
 	}
 
-	unless ($found) {
+	unless ($entry) {
 		$$new{created} = time();
-		push @$meta, $new;
+		$collection->insert($new);
 		$c++;
 	}
 }
 $file->close();
 
-# loop over meta.json again to find some entries to disable
-for my $entry (@$meta) {
+# Loop over the meta collection to find some entries to disable
+my $results = $collection->find({ target => "$t" })->result;
+while (my $entry = $results->next()) {
 	my $found = 0;
 	my $file = MARC::File::XML->in($ARGV[0]);
-	while (my $r = $file->next())
+	RECORD: while (my $r = $file->next())
 	{
 		if ($$entry{sfxn} eq $r->subfield('090', "a"))
 		{
 			$found = 1;
+			last RECORD;
 		}
 	}
 	$file->close();
 
 	unless ($found) {
-		$$entry{active} = 0;
+		$collection->update_one(
+			{ sfxn => $$entry{sfxn} },
+			{ '$set' => { active => 0 } }
+		);
 		$d++;
 	}
 }
 
-open my $fh, ">", "meta.json";
-print $fh JSON->new->utf8->pretty->encode($meta);
-close $fh;
-
 say "----";
-say "Looped over $i records";
+say "Looped over $i records of target $t";
 say "Updated $u entries";
 say "Created $c entries";
 say "Disabled $d entries";

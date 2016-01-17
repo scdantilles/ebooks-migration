@@ -1,29 +1,23 @@
 #!/usr/bin/perl
 use v5.22;
-use JSON;
+use MongoDB;
 use Data::Dumper;
 use LWP::Simple;
 use XML::Simple;
 binmode(STDOUT, ":utf8");
 
-my $json;
-{
-  local $/;
-  open my $fh, "<", "meta.json";
-  $json = <$fh>;
-  $json eq "" and $json = "[]";
-  close $fh;
-}
-my $meta = JSON->new->utf8->decode($json);
-my $num = @$meta;
-say "Openned existing meta.json, containing $num entries.";
+my $client     = MongoDB->connect('mongodb://localhost');
+my $collection = $client->ns('ebooks.meta');
+my $num = $collection->count();
+say "Connecting mongodb, containing $num entries.";
 say "----";
 
 my $i = 0; # loop counter
 my $u = 0; # number of updated entries
 
-# loop over meta.json again to find some entries to disable
-for my $entry (@$meta) {
+# loop over the meta collection to add the PPN
+my $results = $collection->find()->result;
+while (my $entry = $results->next()) {
 	$i++;
 	say "TITLE: ", $$entry{title};
 	for my $isbn (@{$$entry{isbns}}) {
@@ -37,12 +31,9 @@ for my $entry (@$meta) {
 			push $$isbn{ppns}, $$ppn{ppn};
 		}
 	}
+	$collection->replace_one({ sfxn => $$entry{sfxn} }, $entry);
 	$u++;
 }
-
-open my $fh, ">", "meta.json";
-print $fh JSON->new->utf8->pretty->encode($meta);
-close $fh;
 
 say "----";
 say "Looped over $i entries";
